@@ -4,7 +4,7 @@
 
 > **Honest scope:** AegisScan is an early-stage defensive scanner, not a replacement for Microsoft Defender, ClamAV, or a managed endpoint-protection product. It cannot guarantee that a file is clean. The bundled heuristics are indicators for review, not malware verdicts.
 
-[![CI](https://github.com/GhosTnever-lkm/aegisscan-av/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/GhosTnever-lkm/aegisscan-av/actions/workflows/ci.yml) [![Version](https://img.shields.io/badge/version-0.1.1-blue)](CHANGELOG.md) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![CI](https://github.com/GhosTnever-lkm/aegisscan-av/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/GhosTnever-lkm/aegisscan-av/actions/workflows/ci.yml) [![Version](https://img.shields.io/badge/version-0.1.2-blue)](CHANGELOG.md) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## For whom
 
