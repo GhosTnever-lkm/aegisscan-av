@@ -34,7 +34,7 @@ class YaraEngine:
     def scan_bytes(self, path: str, data: bytes) -> list[Finding]:
         try:
             matches = self._rules.match(data=data)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - YARA raises library-specific errors; report them as findings
             return [
                 Finding(
                     display_safe(path),
