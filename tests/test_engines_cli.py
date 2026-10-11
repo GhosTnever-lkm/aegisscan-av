@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-import sys
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -111,9 +111,8 @@ class ExternalEngineTests(unittest.TestCase):
             ClamAVEngine()
 
     def test_yara_dependency_is_optional_and_failure_is_actionable(self) -> None:
-        with patch.dict(sys.modules, {"yara": None}):
-            with self.assertRaisesRegex(RuntimeError, "YARA support"):
-                YaraEngine(Path("rules.yar"))
+        with patch.dict(sys.modules, {"yara": None}), self.assertRaisesRegex(RuntimeError, "YARA support"):
+            YaraEngine(Path("rules.yar"))
 
     def test_yara_matches_local_rule_and_uses_relative_path(self) -> None:
         fake_rules = SimpleNamespace(match=lambda **kwargs: [SimpleNamespace(rule="SyntheticRule")])
