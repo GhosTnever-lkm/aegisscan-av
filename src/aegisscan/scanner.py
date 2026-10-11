@@ -4,10 +4,10 @@ import io
 import lzma
 import os
 import stat
-import zlib
 import zipfile
-from pathlib import Path, PurePosixPath
-from typing import Iterable
+import zlib
+from collections.abc import Iterable
+from pathlib import Path
 
 from .config import ScanLimits
 from .engines import ByteEngine, ClamAVEngine
