@@ -1,0 +1,13 @@
+# Changelog
+
+## 0.1.1 - 2026-10-11
+
+- Reject targets whose user-supplied path contains a symbolic link or Windows reparse point before resolving or reading the target.
+- Added coverage for symlinked target ancestors, junction/reparse-point guards, and canonical temporary paths across platforms.
+- Verified locally with 60 synthetic tests and 90% branch coverage; no malware samples are included.
+
+## 0.1.0 - 2026-10-11
+
+- Initial local-first defensive scanner: SHA-256 signature database, bounded file/tree/ZIP inspection, explainable static indicators, JSON/text reports, and optional YARA/ClamAV integrations.
+- Read-only scanning by default: never executes scanned content, follows symlinks, deletes, or quarantines files.
+- Verified locally with 56 synthetic tests and 90% branch coverage; includes CI across supported Python versions and operating systems.
