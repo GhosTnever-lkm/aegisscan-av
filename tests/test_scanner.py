@@ -97,9 +97,8 @@ class ScannerFileTests(unittest.TestCase):
         self.assertNotIn(directory, result.errors[0])
 
     def test_directory_read_error_is_reported(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            with patch("aegisscan.scanner.os.scandir", side_effect=PermissionError("denied")):
-                result = Scanner().scan(Path(directory).resolve())
+        with tempfile.TemporaryDirectory() as directory, patch("aegisscan.scanner.os.scandir", side_effect=PermissionError("denied")):
+            result = Scanner().scan(Path(directory).resolve())
         self.assertTrue(result.errors)
         self.assertIn("cannot read .", result.errors[0])
 
