@@ -6,7 +6,6 @@ from pathlib import Path
 
 from aegisscan import __version__
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
