@@ -22,7 +22,7 @@ class SignatureDatabase:
         self._signatures = normalized
 
     @classmethod
-    def load(cls, path: Path) -> "SignatureDatabase":
+    def load(cls, path: Path) -> SignatureDatabase:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, UnicodeError, json.JSONDecodeError) as exc:
@@ -31,7 +31,7 @@ class SignatureDatabase:
             raise ValueError("signature database requires schema_version: 1")
         signatures = data.get("sha256")
         if not isinstance(signatures, dict):
-            raise ValueError("signature database requires an object named 'sha256'")
+            raise TypeError("signature database requires an object named 'sha256'")
         return cls(signatures)
 
     def lookup(self, digest: str) -> str | None:
