@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2 - 2026-10-11
+
+- Fixed all ruff lint findings (import order, unused import, regex flags, nested `with` statements); `ruff check .` is now clean.
+- Invalid signature database root now raises `TypeError` instead of `ValueError`.
+- Verified locally with 60 synthetic tests; no behavior change in scanning.
+
 ## 0.1.1 - 2026-10-11
 
 - Reject targets whose user-supplied path contains a symbolic link or Windows reparse point before resolving or reading the target.
