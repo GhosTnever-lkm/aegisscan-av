@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aegisscan-av"
+version = "0.1.1"
+description = "Local-first, explainable defensive malware scanning with bounded archive inspection"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "GhosTnever"}]
+keywords = ["antivirus", "malware-scanner", "security", "yara", "clamav", "local-first"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: End Users/Desktop",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Security",
+]
+
+[project.optional-dependencies]
+yara = ["yara-python>=4.5,<5"]
+test = ["coverage==7.16.2"]
+
+[project.scripts]
+aegis = "aegisscan.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/GhosTnever-lkm/aegisscan-av"
+Issues = "https://github.com/GhosTnever-lkm/aegisscan-av/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
