@@ -11,31 +11,31 @@ _RULES: tuple[tuple[str, Severity, str, re.Pattern[bytes]], ...] = (
         "POWERSHELL_ENCODED_COMMAND",
         Severity.MEDIUM,
         "Encoded PowerShell command pattern; review the script before running it.",
-        re.compile(rb"powershell(?:\.exe)?[^\r\n]{0,120}-(?:enc|encodedcommand)\b", re.I),
+        re.compile(rb"powershell(?:\.exe)?[^\r\n]{0,120}-(?:enc|encodedcommand)\b", re.IGNORECASE),
     ),
     (
         "SCRIPT_BASE64_DECODER",
         Severity.LOW,
         "Script contains a base64 decoder reference; this can be legitimate but merits review.",
-        re.compile(rb"frombase64string\s*\(|(?:b64decode|base64\.decode)\s*\(", re.I),
+        re.compile(rb"frombase64string\s*\(|(?:b64decode|base64\.decode)\s*\(", re.IGNORECASE),
     ),
     (
         "PROCESS_INJECTION_API",
         Severity.MEDIUM,
         "Process-injection API name found in static content; no code was executed.",
-        re.compile(rb"(?:createremotethread|virtualallocex|writeprocessmemory)", re.I),
+        re.compile(rb"(?:createremotethread|virtualallocex|writeprocessmemory)", re.IGNORECASE),
     ),
     (
         "SCRIPT_DOWNLOAD_AND_EXECUTE",
         Severity.MEDIUM,
         "A download-and-execute pattern was found in static content.",
-        re.compile(rb"(?:downloadstring|urlmon|urldownloadtofile)[^\r\n]{0,160}(?:invoke-expression|iex|start-process)", re.I),
+        re.compile(rb"(?:downloadstring|urlmon|urldownloadtofile)[^\r\n]{0,160}(?:invoke-expression|iex|start-process)", re.IGNORECASE),
     ),
     (
         "WINDOWS_SCRIPT_HOST_AUTOMATION",
         Severity.LOW,
         "Windows Script Host automation reference; verify the file's intended behavior.",
-        re.compile(rb"wscript\.shell|scripting\.filesystemobject", re.I),
+        re.compile(rb"wscript\.shell|scripting\.filesystemobject", re.IGNORECASE),
     ),
 )
 
