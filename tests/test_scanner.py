@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import os
 import stat
 import tempfile
 import unittest
@@ -81,16 +82,45 @@ class ScannerFileTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory).resolve() / "growing.txt"
             path.write_bytes(b"x")
-            with patch.object(Path, "open", return_value=io.BytesIO(b"12345")):
+            original_open = os.open
+
+            def grow_before_open(candidate, flags, *args, **kwargs):
+                if Path(candidate) == path:
+                    path.write_bytes(b"12345")
+                return original_open(candidate, flags, *args, **kwargs)
+
+            with patch("aegisscan.scanner.os.open", side_effect=grow_before_open):
                 result = Scanner(ScanLimits(max_file_bytes=4)).scan(path)
         self.assertEqual(result.files_scanned, 0)
         self.assertIn("FILE_GROWTH_LIMIT", codes(result))
+
+    def test_replaced_file_is_skipped_before_external_contents_are_read(self) -> None:
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as outside:
+            path = Path(directory).resolve() / "scan.txt"
+            external = Path(outside).resolve() / "outside.txt"
+            path.write_text("benign", encoding="utf-8")
+            external.write_text("powershell -EncodedCommand synthetic", encoding="utf-8")
+            original_open = os.open
+
+            def replace_between_stat_and_open(candidate, flags, *args, **kwargs):
+                if Path(candidate) == path:
+                    return original_open(external, flags, *args, **kwargs)
+                return original_open(candidate, flags, *args, **kwargs)
+
+            with patch("aegisscan.scanner.os.open", side_effect=replace_between_stat_and_open):
+                result = Scanner().scan(path)
+
+        self.assertEqual(result.files_scanned, 0)
+        self.assertEqual(result.bytes_scanned, 0)
+        self.assertEqual(result.files_skipped, 1)
+        self.assertIn("FILE_CHANGED_DURING_SCAN", codes(result))
+        self.assertNotIn("POWERSHELL_ENCODED_COMMAND", codes(result))
 
     def test_file_read_error_is_reported_with_relative_path(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory).resolve() / "private-name.txt"
             path.write_text("safe")
-            with patch.object(Path, "open", side_effect=PermissionError("denied")):
+            with patch("aegisscan.scanner.os.open", side_effect=PermissionError("denied")):
                 result = Scanner().scan(path)
         self.assertTrue(result.errors)
         self.assertIn("private-name.txt", result.errors[0])
@@ -148,6 +178,29 @@ class ScannerFileTests(unittest.TestCase):
             result = Scanner(clamav=engine).scan(path)
         self.assertIn("CLAMAV_DETECTION", codes(result))
         engine.scan_paths.assert_called_once()
+        snapshot_path = engine.scan_paths.call_args.args[0][0][0]
+        self.assertNotEqual(snapshot_path, path)
+        self.assertFalse(snapshot_path.exists())
+
+    def test_clamav_scans_the_bytes_read_by_aegisscan_not_the_source_path_again(self) -> None:
+        observed: list[tuple[Path, bytes]] = []
+
+        class SnapshotEngine:
+            def scan_paths(self, paths):
+                observed.extend((path, path.read_bytes()) for path, _display in paths)
+                return []
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory).resolve() / "file.txt"
+            path.write_bytes(b"original safe snapshot")
+            result = Scanner(clamav=SnapshotEngine()).scan(path)
+
+        self.assertEqual(result.files_scanned, 1)
+        self.assertEqual(len(observed), 1)
+        snapshot_path, snapshot_bytes = observed[0]
+        self.assertNotEqual(snapshot_path, path)
+        self.assertEqual(snapshot_bytes, b"original safe snapshot")
+        self.assertFalse(snapshot_path.exists())
 
     def test_root_symlink_is_not_followed(self) -> None:
         with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as outside:

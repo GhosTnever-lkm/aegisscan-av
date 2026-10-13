@@ -4,7 +4,7 @@
 
 > **Honest scope:** AegisScan is an early-stage defensive scanner, not a replacement for Microsoft Defender, ClamAV, or a managed endpoint-protection product. It cannot guarantee that a file is clean. The bundled heuristics are indicators for review, not malware verdicts.
 
-[![CI](https://github.com/GhosTnever-lkm/aegisscan-av/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/GhosTnever-lkm/aegisscan-av/actions/workflows/ci.yml) [![Version](https://img.shields.io/badge/version-0.1.2-blue)](CHANGELOG.md) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![CI](https://github.com/GhosTnever-lkm/aegisscan-av/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/GhosTnever-lkm/aegisscan-av/actions/workflows/ci.yml) [![Version](https://img.shields.io/badge/version-0.1.3-blue)](CHANGELOG.md) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## For whom
 
@@ -15,6 +15,7 @@
 ## What it does
 
 - Rejects targets reached through symbolic links or Windows reparse points; during tree scans it never follows symbolic links or junctions and reports unreadable paths instead of silently skipping them.
+- Opens scanned files without following links and checks file identity before reading. A file replaced or turned into a link during opening is skipped, and the report marks the scan incomplete.
 - Matches exact SHA-256 signatures from a local JSON database.
 - Flags a small set of explainable script/process indicators; it does not infer that a file is malicious from a single generic string.
 - Inspects ZIP entries in memory—never extracts them—and bounds entry count, file size, total scan bytes, nesting depth, and compression ratio.
@@ -46,7 +47,7 @@ python -m pip install '.[yara]'
 aegis scan ./candidate.zip --yara-rules ./my-local-rules.yar --clamav
 ```
 
-YARA rules are supplied by you; ClamAV must be installed separately and its definitions kept current with its own supported tools. AegisScan does not download feeds or execute scanned files.
+YARA rules are supplied by you; ClamAV must be installed separately and its definitions kept current with its own supported tools. When enabled, ClamAV receives short-lived local snapshots of the bytes AegisScan already read; the source path is not reopened, and snapshots are deleted after the scan. AegisScan does not download feeds or execute scanned files.
 
 ## Three workflows
 
@@ -60,7 +61,7 @@ YARA rules are supplied by you; ClamAV must be installed separately and its defi
 - `1`: high/critical finding, or any warning with `--fail-on-warning`.
 - `2`: configuration/input/report error, optional-engine failure, or an incomplete scan caused by unreadable/skipped content or a safety limit.
 
-Reports omit absolute root paths. Files are read-only; JSON output is written only when you request `--json-out`.
+Reports omit absolute root paths and do not modify scan targets. ClamAV snapshots are temporarily written under the operating system's temporary directory and removed after its scan. JSON output is written only when you request `--json-out`.
 
 ## Limits and safety
 
@@ -68,7 +69,7 @@ Defaults are deliberately bounded: 10,000 files and directories, 100,000 directo
 
 ## Demo
 
-Current local QA: **60 tests passed** with **90% branch coverage**. The repository contains only harmless synthetic fixtures; no malware samples are included. See the [demo output](docs/demo.md) and [architecture / threat model](docs/architecture.md). Run tests locally:
+Current local QA: **62 tests passed** with **88% branch coverage** (three symlink tests require privileges unavailable in this Windows environment). The repository contains only harmless synthetic fixtures; no malware samples are included. See the [demo output](docs/demo.md) and [architecture / threat model](docs/architecture.md). Run tests locally:
 
 ```bash
 python -m unittest discover -s tests -v

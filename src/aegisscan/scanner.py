@@ -4,6 +4,7 @@ import io
 import lzma
 import os
 import stat
+import tempfile
 import zipfile
 import zlib
 from collections.abc import Iterable
@@ -34,6 +35,7 @@ class Scanner:
         self._result: ScanResult | None = None
         self._root: Path | None = None
         self._clamav_paths: list[tuple[Path, str]] = []
+        self._clamav_snapshot_dir: tempfile.TemporaryDirectory | None = None
 
     def scan(self, target: Path) -> ScanResult:
         path = Path(target).expanduser()
@@ -41,6 +43,9 @@ class Scanner:
         result = ScanResult(target=label)
         self._result = result
         self._clamav_paths = []
+        if self._clamav_snapshot_dir is not None:
+            self._clamav_snapshot_dir.cleanup()
+            self._clamav_snapshot_dir = None
         try:
             if self._contains_linklike_component(path):
                 result.files_skipped += 1
@@ -92,8 +97,14 @@ class Scanner:
 
     def _run_clamav(self) -> None:
         assert self._result is not None
-        if self.clamav and self._clamav_paths:
-            self._result.findings.extend(self.clamav.scan_paths(self._clamav_paths))
+        try:
+            if self.clamav and self._clamav_paths:
+                self._result.findings.extend(self.clamav.scan_paths(self._clamav_paths))
+        finally:
+            if self._clamav_snapshot_dir is not None:
+                self._clamav_snapshot_dir.cleanup()
+                self._clamav_snapshot_dir = None
+                self._clamav_paths = []
 
     def _scan_directory(self, root: Path) -> None:
         assert self._result is not None
@@ -188,25 +199,45 @@ class Scanner:
 
     def _scan_file(self, path: Path, display: str) -> None:
         assert self._result is not None
+        descriptor: int | None = None
         try:
-            stat = path.stat(follow_symlinks=False)
-            if stat.st_size > self.limits.max_file_bytes:
+            observed = path.stat(follow_symlinks=False)
+            if not stat.S_ISREG(observed.st_mode):
+                self._skip_changed_file(display)
+                return
+            if observed.st_size > self.limits.max_file_bytes:
                 self._result.files_skipped += 1
                 self._limit_finding(display, "FILE_SIZE_LIMIT", "File exceeds the configured byte limit; contents were not read.")
                 return
             remaining = self.limits.max_total_bytes - self._result.bytes_scanned
-            if remaining <= 0 or stat.st_size > remaining:
+            if remaining <= 0 or observed.st_size > remaining:
                 self._result.files_skipped += 1
                 self._limit_finding(display, "TOTAL_SCAN_BYTE_LIMIT", "Total scan byte budget reached; file contents were not analyzed.")
                 return
             read_limit = min(self.limits.max_file_bytes, remaining)
-            with path.open("rb") as stream:
+            flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
+            flags |= getattr(os, "O_NONBLOCK", 0)
+            descriptor = os.open(path, flags)
+            opened = os.fstat(descriptor)
+            if (
+                not stat.S_ISREG(opened.st_mode)
+                or (opened.st_dev, opened.st_ino) != (observed.st_dev, observed.st_ino)
+            ):
+                os.close(descriptor)
+                descriptor = None
+                self._skip_changed_file(display)
+                return
+            with os.fdopen(descriptor, "rb") as stream:
+                descriptor = None
                 data = stream.read(read_limit + 1)
         except OSError as exc:
             self._result.errors.append(
                 f"cannot read {display}: {exc.strerror or type(exc).__name__}"
             )
             return
+        finally:
+            if descriptor is not None:
+                os.close(descriptor)
         if len(data) > read_limit:
             self._result.files_skipped += 1
             code = (
@@ -220,7 +251,42 @@ class Scanner:
         self._result.bytes_scanned += len(data)
         self._scan_bytes(display, data, archive_depth=0)
         if self.clamav:
-            self._clamav_paths.append((path, display))
+            try:
+                if self._clamav_snapshot_dir is None:
+                    self._clamav_snapshot_dir = tempfile.TemporaryDirectory(prefix="aegisscan-clamav-")
+                with tempfile.NamedTemporaryFile(
+                    mode="wb",
+                    prefix="scan-",
+                    suffix=".bin",
+                    dir=self._clamav_snapshot_dir.name,
+                    delete=False,
+                ) as snapshot:
+                    snapshot.write(data)
+                self._clamav_paths.append((Path(snapshot.name), display))
+            except OSError as exc:
+                self._result.findings.append(
+                    Finding(
+                        display,
+                        "CLAMAV_ERROR",
+                        Severity.MEDIUM,
+                        "clamav",
+                        f"Could not create a stable local snapshot for ClamAV ({type(exc).__name__}); its results are incomplete.",
+                    )
+                )
+
+    def _skip_changed_file(self, display: str) -> None:
+        """Report a link/type/replacement detected between metadata and open."""
+        assert self._result is not None
+        self._result.files_skipped += 1
+        self._result.findings.append(
+            Finding(
+                display,
+                "FILE_CHANGED_DURING_SCAN",
+                Severity.LOW,
+                "filesystem",
+                "The file changed or became a link while opening; contents were not read.",
+            )
+        )
 
     def _scan_bytes(self, display: str, data: bytes, archive_depth: int) -> None:
         assert self._result is not None

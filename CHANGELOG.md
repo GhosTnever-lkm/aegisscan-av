@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3 - 2026-10-13
+
+- Close the file-replacement race by opening without following links and verifying the opened file identity before reading; changed or linked files are skipped and make the scan incomplete.
+- When ClamAV is enabled, scan bounded temporary snapshots of the exact bytes AegisScan read, rather than reopening source paths. Temporary snapshots are removed after ClamAV finishes.
+- Added regression tests for path replacement, stable ClamAV input, and snapshot cleanup.
+
 ## 0.1.2 - 2026-10-11
 
 - Fixed all ruff lint findings (import order, unused import, regex flags, nested `with` statements); `ruff check .` is now clean.

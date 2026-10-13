@@ -6,7 +6,7 @@ AegisScan is a local triage pipeline. It is intentionally not a background servi
 
 1. **Validate the target path:** reject missing targets and any symbolic link or Windows reparse point in the supplied path before resolving it.
 2. **Bound traversal:** enforce file, directory, entry, depth, file-size, and total-byte budgets before reading content.
-3. **Read once:** compute a SHA-256 digest and pass the same bounded byte buffer to built-in and optional byte engines.
+3. **Read once:** open each file without following links, compare the opened file identity with the checked path metadata, then compute a SHA-256 digest and pass the same bounded byte buffer to built-in engines. Optional ClamAV receives a temporary snapshot of those exact bytes instead of reopening the source path.
 4. **Inspect archives:** read ZIP members in memory only; never extract. Check path names, entry count, uncompressed size, compression ratio, nesting depth, and cumulative scan budget.
 5. **Correlate evidence:** match only user-supplied local hashes, static explanatory indicators, and optional local YARA / ClamAV results.
 6. **Report:** emit relative, control-character-escaped paths and JSON or terminal output. A skipped or unreadable object is never described as clean.
@@ -27,4 +27,4 @@ AegisScan is a local triage pipeline. It is intentionally not a background servi
 
 ## Trust boundaries
 
-YARA rules and SHA-256 labels are user-provided local input. ClamAV is an optional separately installed scanner. AegisScan invokes ClamAV with argument arrays (never a shell), scan limits, and no repair flags. Rules and external-engine output are treated as data, not instructions.
+YARA rules and SHA-256 labels are user-provided local input. ClamAV is an optional separately installed scanner. When enabled, AegisScan writes bounded snapshots to a temporary directory, invokes ClamAV with argument arrays (never a shell), scan limits, and no repair flags, then removes the snapshots. Rules and external-engine output are treated as data, not instructions.

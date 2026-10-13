@@ -18,4 +18,4 @@ class ReleaseMetadataTests(unittest.TestCase):
 
     def test_changelog_starts_with_current_release(self) -> None:
         first_entry = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8").splitlines()[2]
-        self.assertEqual(first_entry, f"## {__version__} - 2026-10-11")
+        self.assertEqual(first_entry, f"## {__version__} - 2026-10-13")
