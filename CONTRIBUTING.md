@@ -1,6 +1,6 @@
 # Contributing
 
-AegisScan is defensive software. Keep scanning read-only, local-first, bounded, and explainable.
+AegisScan is defensive software. Keep source files unchanged, local-first, bounded, and explainable. Optional engines may use short-lived local snapshots that are removed after the scan.
 
 - Never add real malware samples, payloads, credentials, personal data, or unlicensed rules.
 - Add benign synthetic fixtures generated inside temporary directories.
