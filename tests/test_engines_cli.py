@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -166,6 +167,51 @@ class ReportAndCliTests(unittest.TestCase):
                 code = run(args)
             self.assertEqual(code, 0)
             self.assertEqual(json.loads(report.read_text())["files_scanned"], 1)
+
+    def test_cli_refuses_report_over_scanned_file(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory).resolve() / "keep.txt"
+            original = "original user content"
+            target.write_text(original, encoding="utf-8")
+            args = build_parser().parse_args(["scan", str(target), "--json-out", str(target)])
+            with patch("sys.stderr"):
+                code = run(args)
+            self.assertEqual(code, 2)
+            self.assertEqual(target.read_text(encoding="utf-8"), original)
+
+    def test_cli_refuses_report_inside_scanned_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            source = root / "keep.txt"
+            original = "original user content"
+            source.write_text(original, encoding="utf-8")
+            report = root / "scan.json"
+            args = build_parser().parse_args(["scan", str(root), "--json-out", str(report)])
+            with patch("sys.stderr"):
+                code = run(args)
+            self.assertEqual(code, 2)
+            self.assertEqual(source.read_text(encoding="utf-8"), original)
+            self.assertFalse(report.exists())
+
+    def test_cli_report_does_not_modify_scanned_file_through_external_hardlink(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            scan_root = root / "scan"
+            scan_root.mkdir()
+            source = scan_root / "keep.txt"
+            original = "original user content"
+            source.write_text(original, encoding="utf-8")
+            report = root / "scan.json"
+            try:
+                os.link(source, report)
+            except (OSError, NotImplementedError) as exc:
+                self.skipTest(f"hard links are unavailable: {exc}")
+            args = build_parser().parse_args(["scan", str(scan_root), "--json-out", str(report)])
+            code = run(args)
+            self.assertEqual(code, 0)
+            self.assertEqual(source.read_text(encoding="utf-8"), original)
+            self.assertEqual(json.loads(report.read_text(encoding="utf-8"))["files_scanned"], 1)
+            self.assertFalse(os.path.samefile(source, report))
 
     def test_cli_invalid_limits_return_configuration_error(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

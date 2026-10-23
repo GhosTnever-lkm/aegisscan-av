@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 from . import __version__
@@ -46,8 +48,59 @@ def _mib(value: int, option: str) -> int:
     return value * 1024 * 1024
 
 
+def _validate_report_path(target: Path, report_path: Path) -> None:
+    """Refuse report destinations that would write inside the scan target."""
+    try:
+        scan_target = target.expanduser().resolve(strict=True)
+    except (OSError, RuntimeError):
+        # Scanner.scan() reports unavailable or invalid targets without writing to them.
+        return
+    try:
+        report_target = report_path.expanduser().resolve(strict=False)
+    except (OSError, RuntimeError) as exc:
+        raise ValueError("--json-out path cannot be resolved safely.") from exc
+    if scan_target.is_dir():
+        lexical_root = Path(os.path.abspath(os.fspath(target.expanduser())))
+        lexical_report = Path(os.path.abspath(os.fspath(report_path.expanduser())))
+        for candidate, root in ((report_target, scan_target), (lexical_report, lexical_root)):
+            try:
+                candidate.relative_to(root)
+            except ValueError:
+                continue
+            raise ValueError("--json-out must be outside the selected scan directory.")
+        return
+    if report_target == scan_target:
+        raise ValueError("--json-out must not overwrite the scanned file.")
+    if report_target.exists() and scan_target.is_file():
+        try:
+            if os.path.samefile(report_target, scan_target):
+                raise ValueError("--json-out must not overwrite the scanned file.")
+        except OSError:
+            pass
+
+
+def _write_json_report(path: Path, content: str) -> None:
+    """Atomically replace a report so a hard-linked destination cannot alter another file."""
+    path = path.expanduser()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as stream:
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+
+
 def run(args: argparse.Namespace) -> int:
     try:
+        if args.json_out:
+            _validate_report_path(args.target, args.json_out)
         signature_db = SignatureDatabase.load(args.signatures) if args.signatures else SignatureDatabase()
         limits = ScanLimits(
             max_files=args.max_files,
@@ -81,8 +134,7 @@ def run(args: argparse.Namespace) -> int:
     print(render_text(result), end="")
     if args.json_out:
         try:
-            args.json_out.parent.mkdir(parents=True, exist_ok=True)
-            args.json_out.write_text(render_json(result), encoding="utf-8")
+            _write_json_report(args.json_out, render_json(result))
         except OSError as exc:
             print(f"aegis: cannot write report: {exc}", file=sys.stderr)
             return 2
