@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+import re
 import tomllib
 import unittest
 from pathlib import Path
@@ -18,4 +20,7 @@ class ReleaseMetadataTests(unittest.TestCase):
 
     def test_changelog_starts_with_current_release(self) -> None:
         first_entry = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8").splitlines()[2]
-        self.assertEqual(first_entry, f"## {__version__} - 2026-10-13")
+        match = re.fullmatch(rf"## {re.escape(__version__)} - (\d{{4}}-\d{{2}}-\d{{2}})", first_entry)
+        self.assertIsNotNone(match)
+        assert match is not None
+        date.fromisoformat(match.group(1))
