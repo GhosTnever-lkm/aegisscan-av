@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4 - 2026-10-25
+
+- Protect scanned inputs from JSON report destinations inside the scan target, equal to the scanned file, or hard-linked to scanned content; write reports atomically.
+
 ## 0.1.3 - 2026-10-13
 
 - Close the file-replacement race by opening without following links and verifying the opened file identity before reading; changed or linked files are skipped and make the scan incomplete.
